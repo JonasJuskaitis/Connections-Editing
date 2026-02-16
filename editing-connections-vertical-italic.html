@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Film Editing Connections</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f3f3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+    }
+    h1 {
+      margin: 8px 0 4px;
+      font-size: 1.4rem;
+      text-align: center;
+    }
+    #status {
+      font-size: 1rem;
+      margin: 4px 0 12px;
+      text-align: center;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(70px, 1fr));
+      gap: 6px;
+      width: 100%;
+      max-width: 520px;
+    }
+    .cell {
+      background: #f5f5eb;
+      border-radius: 6px;
+      padding: 10px;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+      box-sizing: border-box;
+      transition: background 0.15s, outline 0.15s, transform 0.1s;
+    }
+    .cell:hover {
+      transform: translateY(-1px);
+    }
+    .cell.selected {
+      outline: 3px solid #f7da21;
+      background: #fff6c4;
+    }
+    .cell.locked {
+      cursor: default;
+      opacity: 0.98;
+    }
+    .cell.group1 { background: #f7da21; }
+    .cell.group2 { background: #a9e6a1; }
+    .cell.group3 { background: #a8d4ff; }
+    .cell.group4 { background: #d7b4ff; }
+    .cell.wrong {
+      outline: 3px solid #e53935;
+    }
+    .controls {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: stretch;
+      width: 100%;
+      max-width: 260px;
+    }
+    button {
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      border-radius: 999px;
+      border: 1px solid #444;
+      background: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #f0f0f0;
+    }
+    .primary-btn {
+      font-weight: 600;
+      padding-inline: 18px;
+      margin-bottom: 6px; /* extra space under first button */
+    }
+    #log {
+      margin-top: 16px;
+      max-width: 520px;
+      width: 100%;
+      font-size: 0.9rem;
+    }
+    #log h2 {
+      margin: 4px 0 4px;
+      font-size: 1rem;
+    }
+    #log-entry-list {
+      margin: 0;
+      padding-left: 16px;
+    }
+    #log-entry-list li {
+      font-style: italic; /* solved groups italic */
+    }
+  </style>
+</head>
+<body>
+  <h1>Film Editing Connections</h1>
+  <div id="status">Tap up to four words, then "Check group".</div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="controls">
+    <button class="primary-btn" onclick="checkGroup()">Check group</button>
+    <button onclick="clearSelection()">Clear selection</button>
+    <button onclick="resetGame()">Reset / Reshuffle</button>
+  </div>
+
+  <div id="log">
+    <h2>Solved groups</h2>
+    <ul id="log-entry-list"></ul>
+  </div>
+
+  <script>
+    const WORDS = [
+      "Echo", "Mirror", "Parallel", "Repeat",
+      "Clash", "Collide", "Contrast", "Oppose",
+      "Gaze", "Sigh", "Gesture", "Whisper",
+      "Pan", "Tilt", "Track", "Zoom"
+    ];
+
+    const GROUPS = [
+      { name: "SIMILARITIES", words: ["Echo", "Mirror", "Parallel", "Repeat"] },
+      { name: "CONTRASTS",   words: ["Clash", "Collide", "Contrast", "Oppose"] },
+      { name: "HUMAN",       words: ["Gaze", "Sigh", "Gesture", "Whisper"] },
+      { name: "MOVEMENT",    words: ["Pan", "Tilt", "Track", "Zoom"] }
+    ];
+
+    let selected = new Set();
+    let solvedGroupIndices = new Set();
+
+    function shuffle(array) {
+      const a = array.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function buildGrid() {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+      const shuffled = shuffle(WORDS);
+
+      shuffled.forEach(word => {
+        const div = document.createElement("div");
+        div.className = "cell";
+        div.textContent = word;
+        div.dataset.word = word;
+        div.onclick = () => onCellClick(word);
+        grid.appendChild(div);
+      });
+    }
+
+    function onCellClick(word) {
+      const cell = findCell(word);
+      if (!cell || cell.classList.contains("locked")) return;
+
+      if (selected.has(word)) {
+        selected.delete(word);
+        cell.classList.remove("selected");
+      } else {
+        if (selected.size >= 4) return; // max four at a time
+        selected.add(word);
+        cell.classList.add("selected");
+      }
+      updateStatus();
+    }
+
+    function findCell(word) {
+      return Array.from(document.querySelectorAll(".cell")).find(c => c.dataset.word === word);
+    }
+
+    function updateStatus(message) {
+      const el = document.getElementById("status");
+      if (message) {
+        el.textContent = message;
+      } else {
+        el.textContent = `Selected ${selected.size} / 4`;
+      }
+    }
+
+    function clearSelection() {
+      selected.forEach(w => {
+        const cell = findCell(w);
+        if (cell) cell.classList.remove("selected", "wrong");
+      });
+      selected.clear();
+      updateStatus("Selection cleared.");
+    }
+
+    function arraysEqualUnordered(a, b) {
+      if (a.length !== b.length) return false;
+      const as = [...a].sort();
+      const bs = [...b].sort();
+      return as.every((v, i) => v === bs[i]);
+    }
+
+    function logSolvedGroup(group) {
+      const list = document.getElementById("log-entry-list");
+      const li = document.createElement("li");
+      li.textContent = `${group.name} – ${group.words.join(", ")}`;
+      list.appendChild(li);
+    }
+
+    function checkGroup() {
+      if (selected.size !== 4) {
+        updateStatus("Select exactly four words first.");
+        return;
+      }
+      const picked = Array.from(selected);
+
+      // See if it matches any unsolved group
+      let matchIndex = -1;
+      GROUPS.forEach((g, idx) => {
+        if (matchIndex !== -1) return;
+        if (solvedGroupIndices.has(idx)) return;
+        if (arraysEqualUnordered(picked, g.words)) {
+          matchIndex = idx;
+        }
+      });
+
+      if (matchIndex === -1) {
+        // Wrong guess: brief red outline, then clear
+        selected.forEach(w => {
+          const cell = findCell(w);
+          if (cell) cell.classList.add("wrong");
+        });
+        setTimeout(() => {
+          selected.forEach(w => {
+            const cell = findCell(w);
+            if (cell) cell.classList.remove("wrong", "selected");
+          });
+          selected.clear();
+          updateStatus("Not a group – try again.");
+        }, 700);
+        return;
+      }
+
+      // Correct group
+      solvedGroupIndices.add(matchIndex);
+      const group = GROUPS[matchIndex];
+      const colourClass = "group" + (matchIndex + 1); // 1..4
+
+      group.words.forEach(w => {
+        const cell = findCell(w);
+        if (cell) {
+          cell.classList.remove("selected", "wrong");
+          cell.classList.add("locked", colourClass);
+        }
+      });
+      selected.clear();
+      logSolvedGroup(group);
+
+      if (solvedGroupIndices.size === GROUPS.length) {
+        updateStatus(`All groups solved! Last group: ${group.name} – ${group.words.join(", ")}`);
+      } else {
+        updateStatus(`Correct: ${group.name} – ${group.words.join(", ")}`);
+      }
+    }
+
+    function resetGame() {
+      selected.clear();
+      solvedGroupIndices.clear();
+      document.getElementById("log-entry-list").innerHTML = "";
+      buildGrid();
+      updateStatus("Tap up to four words, then \"Check group\".");
+    }
+
+    // Initialise
+    buildGrid();
+  </script>
+</body>
+</html>
